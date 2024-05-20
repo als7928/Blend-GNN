@@ -109,7 +109,16 @@ class AugRD(BaseGNN):
                         visualize_molecular_structure(G)
                         self.draw_count=0
                     self.draw_count+=1
-        
+
+        if self.training and self.opt["drawing"] and self.opt["ablation_study"] in ["no_rd", "no_r", "no_d", "no_aug"]:
+            if self.draw_count % 50 == 0:
+                vis_sample = data[0]
+                vis_sample.x = z[:vis_sample.x.shape[0],:]
+                G = to_networkx_sparse(vis_sample)
+                visualize_molecular_structure(G)
+                self.draw_count=0
+            self.draw_count+=1
+
         z = global_mean_pool(z, batch)
         z = F.relu(self.lin1(z))
         z = F.dropout(z, p=self.opt['dropout'], training=self.training)
