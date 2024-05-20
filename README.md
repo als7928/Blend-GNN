@@ -3,7 +3,7 @@
 ---
 ## Run
 ```
-$ python main.py --dataset MUTAG --epochs 200
+$ python main.py --dataset MUTAG --epochs 200 --time 2 --hidden_dim 128
 ```
 
 ## Ablation

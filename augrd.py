@@ -47,7 +47,7 @@ class AugRD(BaseGNN):
         if  self.opt["ablation_study"] in ["no_rd", "no_r", "no_d", "no_aug", "no_pos"] :
             self.lin1 = torch.nn.Linear(opt['hidden_dim'], opt['hidden_dim'])
             if self.opt["ablation_study"] in ["no_pos"]:
-                self.att = nn.MultiheadAttention(opt['hidden_dim'], opt['mha_heads'], dropout=opt['mha_dropout'])
+                self.att = nn.MultiheadAttention(2*opt['hidden_dim'], opt['mha_heads'], dropout=opt['mha_dropout'])
         else:
             self.att = nn.MultiheadAttention(2*opt['hidden_dim'], opt['mha_heads'], dropout=opt['mha_dropout'])
             self.lin1 = torch.nn.Linear(2*opt['hidden_dim'], opt['hidden_dim'])
