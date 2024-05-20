@@ -1,6 +1,6 @@
 ## Python environment setup with Conda
-To be decribed.
 
+---
 ## Run
 ```
 $ python main.py --dataset MUTAG --epochs 200
