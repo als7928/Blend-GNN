@@ -1,5 +1,5 @@
 ## Python environment setup with Conda
-
+Install torch, torch-sparse torch-geometric, torch-scatter, torchdiffeq, ...
 ---
 ## Run
 ```

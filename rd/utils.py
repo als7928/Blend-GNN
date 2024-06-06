@@ -40,8 +40,8 @@ def to_networkx_sparse(data):
 
     if data.x is not None:
         for i, feature in enumerate(data.x): 
-            # G.nodes[i]['label'] = feature.argmax().item()
-            G.nodes[i]['label'] = feature.sum().item()
+            G.nodes[i]['label'] = feature.argmax().item()
+            # G.nodes[i]['label'] = feature.sum().item()
     G.label = data.y.item()
     return G
 
@@ -57,11 +57,11 @@ def visualize_molecular_structure(G):
 
     nx.draw(G, pos, with_labels=False, node_color=node_colors, edge_color='gray', node_size=100, width=1)
 
-    # feature_color_mapping = {feature: color_map.colors[idx] for idx, feature in enumerate(unique_features)}
-    # legend_labels = {f'{feature}': color for feature, color in feature_color_mapping.items()}
-    # plt.legend(handles=[plt.Line2D([0], [0], marker='o', color='w', label=label,
-    #                               markerfacecolor=color, markersize=10) for label, color in legend_labels.items()],
-              #  title="Time")
+    feature_color_mapping = {feature: color_map.colors[idx] for idx, feature in enumerate(unique_features)}
+    legend_labels = {f'{feature}': color for feature, color in feature_color_mapping.items()}
+    plt.legend(handles=[plt.Line2D([0], [0], marker='o', color='w', label=label,
+                                  markerfacecolor=color, markersize=10) for label, color in legend_labels.items()],
+               title="Time")
     plt.draw()
     plt.savefig('sample.jpg', dpi=300)
     plt.cla()
