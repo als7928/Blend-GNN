@@ -40,7 +40,7 @@ parser.add_argument('--hidden_dim', type=int, default=128, help='Hidden dimensio
 parser.add_argument("--encoder_layers", type=int, default=2, help="depth of encoder")
 
 # Reaction-diffusion args
-parser.add_argument("--max_nfe", type=int, default=200, help="Maximum number of function evaluations in an epoch. Stiff ODEs will hang if not set.")
+parser.add_argument("--max_nfe", type=int, default=1000, help="Maximum number of function evaluations in an epoch. Stiff ODEs will hang if not set.")
 parser.add_argument('--time', type=float, default=2.0, help='End time of ODE integrator.')
 parser.add_argument('--block', type=str, default='attention', help='constant, attention')
 parser.add_argument('--function', type=str, default='gread', help='laplacian, transformer, gread, GAT')
@@ -90,7 +90,7 @@ parser.add_argument('--attention_type', type=str, default="scaled_dot",
 parser.add_argument('--square_plus', action='store_true', help='replace softmax with square plus')
 
 ### analysis
-parser.add_argument("--ablation_study", type=str, default="none", help="none, no_rd, no_r, no_aug, no_pos")
+parser.add_argument("--ablation_study", type=str, default="none", help="none, no_u, no_rd, no_r, no_aug, no_pos")
 parser.add_argument('--drawing', type=eval, default=False)
 
 
@@ -152,6 +152,14 @@ for dataset_name, Net in product(datasets, nets):
 
     for num_layers, hidden in product(layers, hiddens):
         dataset = get_dataset(dataset_name, sparse=Net != DiffPool)
+        
+        if opt["ablation_study"]!="no_u":
+            import torch_geometric.transforms as T
+            if dataset.transform is None:
+                dataset.transform = T.AddLaplacianEigenvectorPE(k=1, attr_name=None)
+            else:
+                dataset.transform = T.Compose([dataset.transform, T.AddLaplacianEigenvectorPE(k=1, attr_name=None)])
+
         if Net == AugRD:
             model = Net(opt, dataset)
         else:
@@ -175,8 +183,10 @@ for dataset_name, Net in product(datasets, nets):
     desc = f'{best_result[1]:.4f} ± {best_result[2]:.4f} | duration_mean: {best_result[3]}'
 
     print(f'Best result - {desc}')
-
-    params=count_parameters(model)
+    if opt["ablation_study"]=="no_rd":
+        params=count_parameters(model.encoder)
+    else:
+        params=count_parameters(model)
     results += [f'{dataset_name} - {model}: {desc}, params: {params}, time: {opt["time"]}, method: {opt["method"]}, ablation_study: {opt["ablation_study"]}']
 results = '\n'.join(results)
 

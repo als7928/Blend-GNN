@@ -66,5 +66,5 @@ def get_dataset(name, sparse=True, cleaned=False):
         else:
             dataset.transform = T.Compose(
                 [dataset.transform, T.ToDense(num_nodes)])
-
+            
     return dataset

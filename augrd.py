@@ -51,10 +51,10 @@ class AugRD(BaseGNN):
         else:
             self.att = nn.MultiheadAttention(2*opt['hidden_dim'], opt['mha_heads'], dropout=opt['mha_dropout'])
             self.lin1 = torch.nn.Linear(2*opt['hidden_dim'], opt['hidden_dim'])
-            self.h0_PE = torch.zeros(size=(self.num_nodes,opt["hidden_dim"]), device=device)
-            self.h1_PE = torch.ones(size=(self.num_nodes,opt["hidden_dim"]), device=device)
-            self.h0_PE.requires_grad = False
-            self.h1_PE.requires_grad = False
+            self.h0_PI = torch.zeros(size=(self.num_nodes,opt["hidden_dim"]), device=device)
+            self.hT_PI = torch.ones(size=(self.num_nodes,opt["hidden_dim"]), device=device)
+            self.h0_PI.requires_grad = False
+            self.hT_PI.requires_grad = False
     
         self.lin2 = torch.nn.Linear(opt['hidden_dim'], self.num_classes)
 
@@ -88,9 +88,9 @@ class AugRD(BaseGNN):
                 if self.opt["ablation_study"]=="no_pos":
                     H = torch.stack([h0,hT], dim=0)
                 else:
-                    h0_pe = torch.cat([h0, self.h0_PE[:num_nodes]], dim=1)
-                    hT_pe = torch.cat([hT, self.h1_PE[:num_nodes]], dim=1)
-                    H = torch.stack([h0_pe,hT_pe], dim=0)
+                    h0_pi = torch.cat([h0, self.h0_PI[:num_nodes]], dim=1)
+                    hT_pi = torch.cat([hT, self.hT_PI[:num_nodes]], dim=1)
+                    H = torch.stack([h0_pi,hT_pi], dim=0)
 
                 if self.training and self.opt["drawing"]:
                     h_blended, z_weight = self.att(H,H,H, need_weights=True)
