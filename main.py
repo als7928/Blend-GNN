@@ -159,7 +159,9 @@ for dataset_name, Net in product(datasets, nets):
                 dataset.transform = T.AddLaplacianEigenvectorPE(k=1, attr_name=None)
             else:
                 dataset.transform = T.Compose([dataset.transform, T.AddLaplacianEigenvectorPE(k=1, attr_name=None)])
-
+            if dataset_name == "REDDIT-BINARY":
+                dataset.transform = T.Compose([dataset.transform, T.AddLaplacianEigenvectorPE(k=1, attr_name=None, tol=1e-3)])
+                
         if Net == AugRD:
             model = Net(opt, dataset)
         else:
