@@ -153,15 +153,16 @@ for dataset_name, Net in product(datasets, nets):
     for num_layers, hidden in product(layers, hiddens):
         dataset = get_dataset(dataset_name, sparse=Net != DiffPool)
         
-        if opt["ablation_study"]!="no_u":
+        if opt["ablation_study"] != "no_u":
             import torch_geometric.transforms as T
-            if dataset.transform is None:
-                dataset.transform = T.AddLaplacianEigenvectorPE(k=1, attr_name=None)
-            else:
-                dataset.transform = T.Compose([dataset.transform, T.AddLaplacianEigenvectorPE(k=1, attr_name=None)])
             if dataset_name == "REDDIT-BINARY":
-                dataset.transform = T.Compose([dataset.transform, T.AddLaplacianEigenvectorPE(k=1, attr_name=None, tol=1e-3)])
-                
+                dataset.transform = T.Compose([dataset.transform, T.AddLaplacianEigenvectorPE(k=1, attr_name=None, tol=1e-6)])
+            else:
+                if dataset.transform is None:
+                    dataset.transform = T.AddLaplacianEigenvectorPE(k=1, attr_name=None)
+                else:
+                    dataset.transform = T.Compose([dataset.transform, T.AddLaplacianEigenvectorPE(k=1, attr_name=None)])
+
         if Net == AugRD:
             model = Net(opt, dataset)
         else:
