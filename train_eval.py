@@ -10,13 +10,15 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.loader import DenseDataLoader as DenseLoader
 
 from torcheval.metrics import BinaryAUROC
+from fvcore.nn import FlopCountAnalysis
+
+from blend import Blend
 from torch.utils.data.dataloader import default_collate
 device = torch.device('cuda')
 
 def my_collate(batch):
     batch = list(filter(lambda x:x is not None, batch))
     return default_collate(batch)
-
 
 def cross_validation_with_val_set(dataset, model, folds, epochs, batch_size,
                                   lr, lr_decay_factor, lr_decay_step_size,
@@ -31,31 +33,35 @@ def cross_validation_with_val_set(dataset, model, folds, epochs, batch_size,
         val_dataset = dataset[val_idx]
 
         if 'adj' in train_dataset[0]:
-            train_loader = DenseLoader(train_dataset, batch_size=len(train_dataset), shuffle=True)
-            val_loader = DenseLoader(val_dataset, batch_size=len(val_dataset), shuffle=False)
-            test_loader = DenseLoader(test_dataset, batch_size=len(test_dataset), shuffle=False)
-        elif model.__class__.__name__ == "AugRD":
-            train_loader = DataLoader(train_dataset, batch_size=len(train_dataset), shuffle=False, collate_fn=my_collate)
-            val_loader = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False, collate_fn=my_collate)
-            test_loader = DataLoader(test_dataset, batch_size=len(test_dataset), shuffle=False, collate_fn=my_collate)
+            train_loader = DenseLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            val_loader = DenseLoader(val_dataset, batch_size=batch_size, shuffle=False)
+            test_loader = DenseLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        elif model.__class__.__name__ == "Blend":
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=my_collate)
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=my_collate)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=my_collate)
         else:
-            train_loader = DataLoader(train_dataset, batch_size=len(train_dataset), shuffle=True)
-            val_loader = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=False)
-            test_loader = DataLoader(test_dataset, batch_size=len(test_dataset), shuffle=False)
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
+        # flops = FlopCountAnalysis(model, input_data)
+        # total_flops = flops.total()
+        # mflops = total_flops / 1e6
+            
         model.to(device).reset_parameters()
+
         optimizer = Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         # optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
         # optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=weight_decay, amsgrad=False)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_decay_step_size, gamma=lr_decay_factor)
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=0.)
 
         # if torch.cuda.is_available():
         torch.cuda.synchronize()
 
         t_start = time.perf_counter()
-        # epoch_5 = 0
-        # epoch_loss = 9999
-        # best_val_loss = 99999 # initialize as a sufficiently large number for each fold before training
+
         for epoch in range(1, epochs + 1):
             start_time = time.perf_counter()
             if dataset_name == 'ogbg-molhiv':
@@ -100,15 +106,15 @@ def cross_validation_with_val_set(dataset, model, folds, epochs, batch_size,
             #     best_epoch = epoch # set this epoch as the best epoch
             #     # best_weights = model.state_dict()
 
-            # if (epoch - best_epoch) > patient: # if no updates after several epochs, stop at this fold
+            # if (epoch - best_epoch) > 200: # if no updates after several epochs, stop at this fold
             #     print(f'Early stopping at epoch {epoch} after the best epoch {best_epoch}.')
             #     for i in range(epoch+1, epochs+1): # pad to fix the length of array for each fold
             #         val_losses.append(99999) # append a sufficiently large number
             #         accs.append(-1) # append a sufficiently small number
             #     break # early stop
-            # if eval_info['val_loss'] < epoch_loss:
-            #     print('gg')
-            #     epoch_loss = eval_info['val_loss']
+
+            # if float(eval_info['val_loss']) < epoch_loss: 
+            #     epoch_loss = float(eval_info['val_loss'])
             #     best_weights = model.state_dict()
 
             # if epoch_5 > 20:
@@ -130,7 +136,6 @@ def cross_validation_with_val_set(dataset, model, folds, epochs, batch_size,
     loss, acc = loss.view(folds, epochs), acc.view(folds, epochs)
     loss, argmin = loss.min(dim=1)
     acc, argacc = acc.max(dim=1)
-    # acc = acc[torch.arange(folds, dtype=torch.long), argmin]
 
     loss_mean = loss.mean().item()
     acc_mean = acc.mean().item()
@@ -144,6 +149,7 @@ def cross_validation_with_val_set(dataset, model, folds, epochs, batch_size,
 
 def k_fold(dataset, folds):
     skf = StratifiedKFold(folds, shuffle=True, random_state=12345)
+    # skf = StratifiedKFold(folds, shuffle=False, random_state=None)
 
     test_indices, train_indices = [], []
     for _, idx in skf.split(torch.zeros(len(dataset)), dataset._data.y):
@@ -172,15 +178,18 @@ def train(model, optimizer, loader):
     total_loss = 0
     for data in loader:
         optimizer.zero_grad()
-        data = data.to(device) #DataBatch(edge_index=[2, 5884], x=[2667, 7], y=[150], batch=[2667], ptr=[151])
+        data = data.to(device)
 
-        out = model(data)
+        if model.__class__.__name__ == "Blend":
+
+            out = model(data)
+        else:
+            out = model(data)
         loss = F.nll_loss(out, data.y.view(-1))
-        if model.__class__.__name__ == "AugRD":
+        if model.__class__.__name__ == "Blend":
             if model.odeblock.nreg > 0:  # add regularisation - slower for small data, but faster and better performance for large data
                 reg_states = tuple(torch.mean(rs) for rs in model.reg_states)
                 regularization_coeffs = model.regularization_coeffs
-
                 reg_loss = sum(
                     reg_state * coeff for reg_state, coeff in zip(reg_states, regularization_coeffs) if coeff != 0
                 )
@@ -190,7 +199,7 @@ def train(model, optimizer, loader):
         loss.backward()
         total_loss += loss.item() * num_graphs(data)
         optimizer.step()
-        if model.__class__.__name__ == "AugRD":
+        if model.__class__.__name__ == "Blend":
             model.bm.update(model.getNFE())
             model.resetNFE()
     return total_loss / len(loader.dataset)
@@ -215,7 +224,6 @@ def train_molhiv(model, optimizer, loader):
 
     return total_loss / len(loader.dataset), auc_roc
 
-
 def eval_acc(model, loader):
     model.eval()
 
@@ -223,10 +231,13 @@ def eval_acc(model, loader):
     for data in loader:
         data = data.to(device)
         with torch.no_grad():
-            pred = model(data).max(1)[1]
+            if model.__class__.__name__ == "Blend":
+                out = model(data)
+                pred = out.max(1)[1]
+            else:
+                pred = model(data).max(1)[1]
         correct += pred.eq(data.y.view(-1)).sum().item()
     return correct / len(loader.dataset)
-
 
 def eval_loss(model, loader):
     model.eval()
@@ -234,7 +245,10 @@ def eval_loss(model, loader):
     for data in loader:
         data = data.to(device)
         with torch.no_grad():
-            out = model(data)
+            if model.__class__.__name__ == "Blend":
+                out = model(data)
+            else:
+                out = model(data)
         loss += F.nll_loss(out, data.y.view(-1), reduction='sum').item()
     return loss / len(loader.dataset)
 

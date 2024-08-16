@@ -1,20 +1,11 @@
-## Python environment setup with Conda
-Install torch, torch-sparse torch-geometric, torch-scatter, torchdiffeq, ...
+## Setup
+```
+$ conda install --yes -c pytorch pytorch=1.13.1 torchvision cudatoolkit=11.6
+$ pip install -r requirements.txt
+```
 ---
 ## Run
 ```
-$ python main.py --dataset MUTAG --epochs 200 --time 2 --hidden_dim 128
+$ python main.py --dataset $dataset$ --epochs $epochs$ --hidden_dim $d_k$ --time $T$  --step_size $tau$ --lambda $lambda$
 ```
 
-## Ablation
-```
-$ python main.py --dataset MUTAG --ablation_study no_aug
-
-```
-
-## visualization
-```
-$ python main.py --dataset MUTAG --drawing True
-
-```
-The visualization results are saved as sample.png in the root folder every 50 epochs.

@@ -66,6 +66,8 @@ def visualize_molecular_structure(G):
     plt.savefig('sample.jpg', dpi=300)
     plt.cla()
     plt.clf()
+  
+    plt.close()
     # plt.show()
 
 
