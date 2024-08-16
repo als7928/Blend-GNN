@@ -1,3 +1,5 @@
+# Blending Global-local Representations for Robust Graph Classification
+![image](assets/overview.jpg) ![image](assets/overview2.jpg)
 ## Setup
 ```
 $ conda install --yes -c pytorch pytorch=1.13.1 torchvision cudatoolkit=11.6
