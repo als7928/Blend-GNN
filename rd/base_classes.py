@@ -94,6 +94,7 @@ class ODEFunc(MessagePassing):
       self.beta_train = nn.Parameter(torch.tensor(0.0))
     elif opt['beta_dim'] == 'vc':
       self.beta_train = nn.Parameter(0.0*torch.ones(1,opt['hidden_dim']))
+       
     self.x0 = None
     self.nfe = 0
     self.alpha_sc = nn.Parameter(torch.ones(1))
@@ -110,24 +111,23 @@ class BaseGNN(MessagePassing):
     self.T = opt['time']
     self.num_classes = dataset.num_classes
     self.num_features = dataset.num_features
-    if hasattr(dataset,"x"):
-      self.num_nodes = dataset.x.shape[0]
-    else:
-      self.num_nodes = dataset.num_nodes
+    self.num_nodes = dataset.num_nodes 
+    self.dataset_name = dataset.dataset_name
+    
     self.device = device
     self.fm = Meter()
     self.bm = Meter()
 
 
-    self.m1 = nn.Linear(self.num_features, opt['hidden_dim'])
-    self.m11 = nn.Linear(opt['hidden_dim'], opt['hidden_dim'])
-    self.m12 = nn.Linear(opt['hidden_dim'], opt['hidden_dim'])
+    # self.m1 = nn.Linear(self.num_features, opt['hidden_dim'])
+    # self.m11 = nn.Linear(opt['hidden_dim'], opt['hidden_dim'])
+    # self.m12 = nn.Linear(opt['hidden_dim'], opt['hidden_dim'])
     self.m2 = M2_MLP(opt, dataset, device=device)
   
 
 
-    self.bn_in = torch.nn.BatchNorm1d(opt['hidden_dim'])
-    self.bn_out = torch.nn.BatchNorm1d(opt['hidden_dim'])
+    # self.bn_in = torch.nn.BatchNorm1d(opt['hidden_dim'])
+    # self.bn_out = torch.nn.BatchNorm1d(opt['hidden_dim'])
 
     self.regularization_fns, self.regularization_coeffs = create_regularization_fns(self.opt)
 
@@ -156,10 +156,10 @@ class BaseGNN(MessagePassing):
     if energy:
         return (torch.linalg.norm(x_j-x_i, dim=1)**2).unsqueeze(dim=1)
 
-def compute_enegry_evolution(self, edge_index, t_list):
-  inter_step = self.odeblock.integrateAt(t_list)
-  energy_list = [self.compute_energy(inter_step[i], edge_index) for i in range(inter_step.shape[0])]
-  return energy_list
+  def compute_enegry_evolution(self, edge_index, t_list):
+    inter_step = self.odeblock.integrateAt(t_list)
+    energy_list = [self.compute_energy(inter_step[i], edge_index) for i in range(inter_step.shape[0])]
+    return energy_list
 
 class M2_MLP(nn.Module):
   def __init__(self, opt, dataset, device=torch.device('cpu')):

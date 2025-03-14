@@ -2,6 +2,7 @@ import torch
 from rd.function_transformer_attention import SpGraphTransAttentionLayer
 from rd.base_classes import ODEblock
 from rd.utils import get_rw_adj
+from torch_geometric.nn.conv import MessagePassing
 
 
 class AttODEblock(ODEblock):
@@ -20,6 +21,8 @@ class AttODEblock(ODEblock):
     self.train_integrator = odeint
     self.test_integrator = odeint
     self.set_tol()
+    self.odefunc.edge_weight = None
+    
     # parameter trading off between attention and the Laplacian
     self.multihead_att_layer = SpGraphTransAttentionLayer(opt['hidden_dim'], opt['hidden_dim'], opt,
                                                           device, edge_weights=self.odefunc.edge_weight).to(device)
@@ -36,7 +39,6 @@ class AttODEblock(ODEblock):
                                           dtype=x.dtype)
       
     self.odefunc.edge_index = edge_index.to(self.device)
-    self.odefunc.edge_weight = edge_weight.to(self.device)
     self.reg_odefunc.odefunc.edge_index, self.reg_odefunc.odefunc.edge_weight = self.odefunc.edge_index, self.odefunc.edge_weight
 
     t = self.t.type_as(x)
@@ -66,17 +68,17 @@ class AttODEblock(ODEblock):
         method=self.opt['method'],
         options={'step_size': self.opt['step_size']},
         atol=self.atol,
-        rtol=self.rtol)
-    # import numpy as np; np.save(r"output_features/{}.npy".format(self.opt['dataset']),state_dt.cpu().detach().numpy())
+        rtol=self.rtol) 
 
     if self.training and self.nreg > 0:
       z = state_dt[0][1]
       reg_states = tuple(st[1] for st in state_dt[1:])
       return z, reg_states
-    else:
+    else:  
       z = state_dt[-1]
       return z
 
   def __repr__(self):
     return self.__class__.__name__ + '( Time Interval ' + str(self.t[0].item()) + ' -> ' + str(self.t[1].item()) \
            + ")"
+           

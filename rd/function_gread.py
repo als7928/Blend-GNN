@@ -28,6 +28,8 @@ class ODEFuncGread(ODEFunc):
       self.b_W = nn.Parameter(torch.Tensor(in_features))
       self.reset_parameters()
     self.epoch = 0
+
+    self.diffusion_value = None
   
   def reset_parameters(self):
     if self.opt['beta_diag'] == True:
@@ -50,8 +52,8 @@ class ODEFuncGread(ODEFunc):
     return ax
 
   def forward(self, t, x):  # the t param is needed by the ODE solver.
-    if self.nfe > self.opt["max_nfe"]:
-      raise MaxNFEException
+    # if self.nfe > self.opt["max_nfe"]:
+    #   raise MaxNFEException
     self.nfe += 1
     if not self.opt['no_alpha_sigmoid']:
       alpha = torch.sigmoid(self.alpha_train)
@@ -104,11 +106,7 @@ class ODEFuncGread(ODEFunc):
         reaction = torch.tanh(reaction)
     else:
       reaction = 0.0
-    
-    if self.opt["ablation_study"]=="no_r":
-      reaction = 0.0
-    if self.opt["ablation_study"]=="no_d":
-      diffusion = 0.0
+      
     """
     - `f` is in the reaction-diffusion form
      - $\mathbf{f}(\mathbf{H}(t)) := \frac{d \mathbf{H}(t)}{dt} = -\alpha\mathbf{L}\mathbf{H}(t) + \beta\mathbf{r}(\mathbf{H}(t), \mathbf{A})$
@@ -126,6 +124,8 @@ class ODEFuncGread(ODEFunc):
     elif self.opt['beta_diag'] == True:
       f = alpha*diffusion + reaction@self.Beta
     
-
-
+    self.diffusion_value = alpha*diffusion
     return f
+  
+  def get_diffusion(self):
+    return self.diffusion_value

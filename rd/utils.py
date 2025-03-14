@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
 import networkx as nx
-def to_networkx_sparse(data):
+def to_networkx_sparse(data, mode=0):
     G = nx.Graph()
 
     for i in range(data.num_nodes):
@@ -40,36 +40,37 @@ def to_networkx_sparse(data):
 
     if data.x is not None:
         for i, feature in enumerate(data.x): 
-            G.nodes[i]['label'] = feature.argmax().item()
-            # G.nodes[i]['label'] = feature.sum().item()
+            if mode==0:
+              G.nodes[i]['label'] = feature.argmax().item()
+            else:
+              G.nodes[i]['label'] = feature.sum().item()
     G.label = data.y.item()
     return G
 
-def visualize_molecular_structure(G):
-    pos = nx.spring_layout(G)
 
+def visualize_molecular_structure(G, fname= 'sample.png', mode=0):
+    pos = nx.spring_layout(G, seed=1)
+    print('drawing... label: ',G.label)
     node_features = nx.get_node_attributes(G, 'label')
-    unique_features = list(set([f for f in node_features.values()]))
-    color_map = plt.cm.get_cmap('viridis', len(unique_features))
-    # color_map = ListedColormap(['red', 'green'])
+    unique_features = list(set([f for f in node_features.values()])) 
+    color_map = plt.cm.get_cmap('viridis', len(unique_features)) 
 
     node_colors = [color_map(unique_features.index(node_features[node])) for node in G.nodes()]
 
-    nx.draw(G, pos, with_labels=False, node_color=node_colors, edge_color='gray', node_size=100, width=1)
+    nx.draw(G, pos, with_labels=False, node_color=node_colors, edge_color='gray', node_size=30, width=1)
 
-    feature_color_mapping = {feature: color_map.colors[idx] for idx, feature in enumerate(unique_features)}
-    legend_labels = {f'{feature}': color for feature, color in feature_color_mapping.items()}
-    plt.legend(handles=[plt.Line2D([0], [0], marker='o', color='w', label=label,
-                                  markerfacecolor=color, markersize=10) for label, color in legend_labels.items()],
-               title="Time")
+    if mode==0:
+      feature_color_mapping = {feature: color_map.colors[idx] for idx, feature in enumerate(unique_features)}
+      legend_labels = {f'{feature}': color for feature, color in feature_color_mapping.items()}
+      plt.legend(handles=[plt.Line2D([0], [0], marker='o', color='w', label=label,
+                                    markerfacecolor=color, markersize=10) for label, color in legend_labels.items()],
+                 title="node_label")
     plt.draw()
-    plt.savefig('sample.jpg', dpi=300)
+    plt.savefig(fname, dpi=300)
     plt.cla()
     plt.clf()
-  
     plt.close()
     # plt.show()
-
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -287,7 +288,7 @@ def get_sem(vec):
   else:
     retval = 0.
   return retval
-
+ 
 
 def get_full_adjacency(num_nodes):
   # what is the format of the edge index?
@@ -392,7 +393,7 @@ class DummyData(object):
 
   
 
-def seed_everywhere(seed=2024):
+def seed_everywhere(seed=1993):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -483,7 +484,7 @@ def get_dataset(name, sparse=True, cleaned=False):
     path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'data', name)
     dataset = TUDataset(path, name, cleaned=cleaned)
     dataset.data.edge_attr = None
-
+    
     if dataset.data.x is None:
         max_degree = 0
         degs = []
@@ -525,3 +526,53 @@ def get_dataset(name, sparse=True, cleaned=False):
     return dataset
 
 
+def addLaplacianPE(dataset, tol=0):
+  all_eigenvectors = []
+  k = 1
+  is_undirected = True
+  for data in dataset: 
+      edge_index = data.edge_index
+      num_nodes = data.num_nodes
+
+      assert data.edge_index is not None
+      assert num_nodes is not None
+      
+      edge_index, edge_weight = get_laplacian(
+          data.edge_index,
+          data.edge_weight,
+          normalization='sym',
+          num_nodes=num_nodes,
+      )
+
+      L = to_scipy_sparse_matrix(edge_index, edge_weight, num_nodes)
+
+      if num_nodes < 100:
+          from numpy.linalg import eig, eigh
+          eig_fn = eig if not is_undirected else eigh
+
+          eig_vals, eig_vecs = eig_fn(L.todense())  # type: ignore
+      else:
+          from scipy.sparse.linalg import eigs, eigsh
+          eig_fn = eigs if not is_undirected else eigsh
+
+          eig_vals, eig_vecs = eig_fn(  # type: ignore
+              L,
+              k=k + 1,
+              which='SR' if not is_undirected else 'SA',
+              return_eigenvectors=True,
+              tol = tol
+          )
+
+      eig_vecs = np.real(eig_vecs[:, eig_vals.argsort()]) 
+      pe = torch.from_numpy(eig_vecs[:, 1:k + 1])
+      sign = -1 + 2 * torch.randint(0, 2, (k, ))
+      pe *= sign
+
+      all_eigenvectors.append(pe)
+  all_eigenvectors_tensor = torch.vstack(all_eigenvectors)
+
+  # if dataset_name in ['REDDIT-BINARY', 'IMDB-BINARY', 'IMDB-MULTI']: 
+  #     dataset.data.x = torch.cat([dataset.data.x, all_eigenvectors_tensor], dim=1)
+  # #     dataset.data.x = all_eigenvectors_tensor 
+  # else:
+  dataset.data.x = torch.cat([dataset.data.x, all_eigenvectors_tensor], dim=1)

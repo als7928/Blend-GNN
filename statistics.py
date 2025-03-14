@@ -16,5 +16,5 @@ def print_dataset(dataset):
     print()
 
 
-for name in ['MUTAG', 'PROTEINS', 'COLLAB', 'IMDB-BINARY', 'REDDIT-BINARY']:
+for name in ['PROTEINS', 'IMDB-BINARY', 'REDDIT-BINARY']:
     print_dataset(get_dataset(name))
