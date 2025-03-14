@@ -1,4 +1,4 @@
-# IJCAI-2025 Submission - Local-Global Blending Graph Neural ODE Network for Graph Classification
+# Local-Global Blending Graph Neural ODE Network for Graph Classification
 
 ## Setup
 ```
